@@ -1,11 +1,17 @@
 package com.example.userMicroservice.service;
 
+import com.example.userMicroservice.dto.DeviceDto;
 import com.example.userMicroservice.dto.UserDto;
 import com.example.userMicroservice.mapper.UserMapper;
 import com.example.userMicroservice.model.User;
 import com.example.userMicroservice.repository.UserRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +22,9 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+
+    @Autowired
+    private RestTemplate restTemplate;
 
     @Override
     public User getById(Long id) {
@@ -57,6 +66,14 @@ public class UserServiceImpl implements UserService {
     public void delete(Long id) throws Exception {
         User user = userRepository.findById(id);
         if (user != null) {
+            ResponseEntity<List<DeviceDto>> deviceDtos = restTemplate.exchange("http://localhost:8091/devices/getByUserId/{userId}", HttpMethod.GET,
+                    null, new ParameterizedTypeReference<List<DeviceDto>>() {}, user.getId());
+            if (deviceDtos.getBody() != null) {
+                deviceDtos.getBody().forEach(deviceDto -> {
+                    restTemplate.delete("http://localhost:8091/devices/deleteById/{id}", deviceDto.getId());
+                });
+            }
+
             userRepository.delete(user);
         }
         else {
